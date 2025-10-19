@@ -1,0 +1,9 @@
+.idea
+frontend/node_modules
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+.env
+.DS_Store
+dist
