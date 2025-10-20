@@ -32,7 +32,7 @@ function App() {
                 await fetchEmployees()
             })
             .catch(function (error) {
-                console.log(`error adding employee${JSON.stringfy(error)}`);
+                console.log(`error adding employee${JSON.stringify(error)}`);
             });
         setEmployeeDetails({...employeeDetails, name: '', employeeId: 0})
     }
