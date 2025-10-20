@@ -44,7 +44,7 @@ services:
     depends_on:
       - backend
     environment:
-      - REACT_APP_SERVER_URL=http://3.140.247.240:8080/employees
+      - REACT_APP_SERVER_URL=http://13.59.3.13/employees
 
 volumes:
   pgdata:
