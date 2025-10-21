@@ -1,0 +1,60 @@
+pipeline {
+  agent any
+  environment {
+    AWS_REGION = 'us-east-2'
+    ECR_REPO = "091778538379.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${ECR_NAME}"
+    IMAGE_TAG = "${env.BUILD_NUMBER}"
+  }
+  parameters {
+    string(name: 'ECR_NAME', defaultValue: 'myapp', description: 'ECR repo name')
+  }
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Build Docker') {
+      steps {
+        sh '''
+          # build docker image (example for backend)
+          docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+        '''
+      }
+    }
+
+    stage('Login to ECR') {
+      steps {
+        sh '''
+          aws --version
+          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin 091778538379.dkr.ecr.${AWS_REGION}.amazonaws.com
+        '''
+      }
+    }
+
+    stage('Push') {
+      steps {
+        sh '''
+          # create repo if not exists
+          aws ecr describe-repositories --repository-names ${ECR_NAME} --region ${AWS_REGION} || aws ecr create-repository --repository-name ${ECR_NAME} --region ${AWS_REGION}
+          docker push ${ECR_REPO}:${IMAGE_TAG}
+        '''
+      }
+    }
+
+    stage('Deploy to k3s') {
+      steps {
+        // two alternatives: copy kubeconfig from k3s via ssh then kubectl apply
+        withCredentials([sshUserPrivateKey(credentialsId: 'k3s-ssh', keyFileVariable: 'SSH_KEY')]) {
+          sh '''
+            chmod 600 $SSH_KEY
+            scp -o StrictHostKeyChecking=no -i $SSH_KEY ubuntu@18.118.36.46:/etc/rancher/k3s/k3s.yaml ./kubeconfig
+            # fix server address if it contains 127.0.0.1
+            sed -i "s/127.0.0.1/18.118.36.46/g" ./kubeconfig
+            export KUBECONFIG=./kubeconfig
+            kubectl set image deployment/myapp myapp=${ECR_REPO}:${IMAGE_TAG} --record || kubectl apply -f k8s/deployment.yaml
+          '''
+        }
+      }
+    }
+  }
+}
